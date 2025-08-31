@@ -269,7 +269,8 @@ app.post('/login', async (req, res) => {
   
   if (password === ADMIN_PASSWORD) {
     req.session.authenticated = true;
-    res.redirect('/');
+    // Go directly to the admin dashboard
+    res.redirect('/admin');
   } else {
     res.redirect('/login?error=Invalid password');
   }
