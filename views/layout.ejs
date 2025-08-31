@@ -87,7 +87,7 @@
         <span class="brand">Room Manager</span>
       </div>
       <nav class="nav">
-        <a class="nav-link <%= path === '/' ? 'active' : '' %>" href="/"><i class="bi bi-speedometer2 me-1"></i> <span class="d-none d-sm-inline">Dashboard</span></a>
+        <a class="nav-link <%= path.startsWith('/admin') ? 'active' : '' %>" href="/admin"><i class="bi bi-speedometer2 me-1"></i> <span class="d-none d-sm-inline">Dashboard</span></a>
         <a class="nav-link <%= path.startsWith('/bookings') ? 'active' : '' %>" href="/bookings"><i class="bi bi-calendar-check me-1"></i> <span class="d-none d-sm-inline">Bookings</span></a>
         <a class="nav-link <%= path.startsWith('/calendar') ? 'active' : '' %>" href="/calendar"><i class="bi bi-calendar3 me-1"></i> <span class="d-none d-sm-inline">Calendar</span></a>
         <a class="nav-link <%= path.startsWith('/users') ? 'active' : '' %>" href="/users"><i class="bi bi-people me-1"></i> <span class="d-none d-sm-inline">Users</span></a>

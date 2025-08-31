@@ -281,8 +281,13 @@ app.get('/logout', (req, res) => {
   res.redirect('/login');
 });
 
-// Dashboard
-app.get('/', requireAuth, async (req, res) => {
+// Public home -> booking request page
+app.get('/', (req, res) => {
+  return res.redirect('/book');
+});
+
+// Admin dashboard
+app.get('/admin', requireAuth, async (req, res) => {
   try {
     // Get statistics
     const totalBookings = await Booking.countDocuments();
