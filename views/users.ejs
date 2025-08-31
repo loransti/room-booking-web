@@ -1,52 +1,48 @@
 <% title = 'Users' %>
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h2 class="mb-0">Users</h2>
-  <div class="text-muted small">Click to set SOD / Key‑B</div>
-</div>
+<v-row class="mb-4" align="center" justify="space-between">
+  <v-col cols="12" md="6">
+    <h2 class="mb-0">Users</h2>
+    <div class="text-medium-emphasis">Tap a button to set SOD / Key‑B</div>
+  </v-col>
+</v-row>
 
-<div class="card">
-  <div class="table-responsive">
-    <table class="table align-middle mb-0 stack-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Username</th>
-          <th>Telegram ID</th>
-          <th>Role</th>
-          <th class="text-center">SOD</th>
-          <th class="text-center">Key‑B</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% if (users && users.length) { %>
-          <% users.forEach(u => { %>
-            <tr>
-              <td data-label="Name"><%= u.name || '-' %></td>
-              <td data-label="Username"><%= u.username ? '@' + u.username : '-' %></td>
-              <td data-label="Telegram ID"><code><%= u.tg_id %></code></td>
-              <td data-label="Role"><span class="badge bg-<%= u.role === 'admin' ? 'primary' : 'secondary' %>"><%= u.role %></span></td>
-              <td class="text-center" data-label="SOD">
-                <button class="btn btn-sm <%= sodTgId === u.tg_id ? 'btn-success' : 'btn-outline-secondary' %>" onclick="setOpener('sod', <%= u.tg_id %>)">
-                  <i class="bi bi-key"></i>
-                </button>
-              </td>
-              <td class="text-center" data-label="Key‑B">
-                <button class="btn btn-sm <%= keybTgId === u.tg_id ? 'btn-success' : 'btn-outline-secondary' %>" onclick="setOpener('keyb', <%= u.tg_id %>)">
-                  <i class="bi bi-door-closed"></i>
-                </button>
-              </td>
-            </tr>
-          <% }) %>
-        <% } else { %>
-          <tr><td colspan="6" class="text-center text-muted">No users found</td></tr>
-        <% } %>
-      </tbody>
-    </table>
-  </div>
-  <div class="card-body text-muted small">
-    • Green button indicates currently set opener.
-  </div>
-</div>
+<v-card elevation="0" border="md">
+  <v-table density="comfortable">
+    <thead>
+      <tr>
+        <th class="text-left">Name</th>
+        <th class="text-left">Username</th>
+        <th class="text-left">Telegram ID</th>
+        <th class="text-left">Role</th>
+        <th class="text-center">SOD</th>
+        <th class="text-center">Key‑B</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (users && users.length) { %>
+        <% users.forEach(u => { %>
+          <tr>
+            <td><%= u.name || '-' %></td>
+            <td><%= u.username ? '@' + u.username : '-' %></td>
+            <td><code><%= u.tg_id %></code></td>
+            <td>
+              <v-chip size="small" color="<%= u.role === 'admin' ? 'primary' : 'grey' %>" variant="tonal"><%= u.role %></v-chip>
+            </td>
+            <td class="text-center">
+              <v-btn size="small" color="<%= sodTgId === u.tg_id ? 'success' : 'grey' %>" variant="tonal" onclick="setOpener('sod', <%= u.tg_id %>)" prepend-icon="mdi-key"></v-btn>
+            </td>
+            <td class="text-center">
+              <v-btn size="small" color="<%= keybTgId === u.tg_id ? 'success' : 'grey' %>" variant="tonal" onclick="setOpener('keyb', <%= u.tg_id %>)" prepend-icon="mdi-door-closed"></v-btn>
+            </td>
+          </tr>
+        <% }) %>
+      <% } else { %>
+        <tr><td colspan="6" class="text-center text-medium-emphasis">No users found</td></tr>
+      <% } %>
+    </tbody>
+  </v-table>
+  <v-card-text class="text-medium-emphasis">• Green button indicates current holder.</v-card-text>
+</v-card>
 
 <script>
   async function setOpener(type, userId) {

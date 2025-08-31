@@ -1,103 +1,103 @@
 <% title = 'Dashboard' %>
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2 class="mb-0">Dashboard</h2>
-  <div class="text-muted">Timezone: <%= process.env && process.env.TIMEZONE ? process.env.TIMEZONE : 'Configured' %></div>
+<v-row class="mb-6" align="center" justify="space-between">
+  <v-col cols="12" md="6">
+    <h2 class="mb-1">Dashboard</h2>
+    <div class="text-medium-emphasis">Timezone: <%= process.env && process.env.TIMEZONE ? process.env.TIMEZONE : 'Configured' %></div>
+  </v-col>
+  <v-col cols="12" md="6" class="d-flex justify-end">
+    <v-btn color="primary" href="/bookings" prepend-icon="mdi-view-list">View all bookings</v-btn>
+  </v-col>
   
-</div>
+</v-row>
 
-<div class="row g-3 mb-4">
-  <div class="col-md-3">
-    <div class="card p-3">
-      <div class="text-muted">Total Bookings</div>
-      <div class="h3 mb-0"><%= stats.totalBookings %></div>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card p-3">
-      <div class="text-muted">Active/Upcoming</div>
-      <div class="h3 mb-0"><%= stats.activeBookings %></div>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card p-3">
-      <div class="text-muted">Total Users</div>
-      <div class="h3 mb-0"><%= stats.totalUsers %></div>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card p-3">
-      <div class="text-muted">Overdue</div>
-      <div class="h3 mb-0 text-danger"><%= stats.overdueBookings %></div>
-    </div>
-  </div>
+<v-row class="mb-6" dense>
+  <v-col cols="12" sm="6" md="3">
+    <v-card elevation="0" class="pa-4" border="md">
+      <div class="text-medium-emphasis">Total Bookings</div>
+      <div class="text-h4"><%= stats.totalBookings %></div>
+    </v-card>
+  </v-col>
+  <v-col cols="12" sm="6" md="3">
+    <v-card elevation="0" class="pa-4" border="md">
+      <div class="text-medium-emphasis">Active/Upcoming</div>
+      <div class="text-h4"><%= stats.activeBookings %></div>
+    </v-card>
+  </v-col>
+  <v-col cols="12" sm="6" md="3">
+    <v-card elevation="0" class="pa-4" border="md">
+      <div class="text-medium-emphasis">Total Users</div>
+      <div class="text-h4"><%= stats.totalUsers %></div>
+    </v-card>
+  </v-col>
+  <v-col cols="12" sm="6" md="3">
+    <v-card elevation="0" class="pa-4" border="md">
+      <div class="text-medium-emphasis">Overdue</div>
+      <div class="text-h4 text-error"><%= stats.overdueBookings %></div>
+    </v-card>
+  </v-col>
   
-</div>
+</v-row>
 
-<div class="row g-3 mb-4">
-  <div class="col-md-6">
-    <div class="card p-3">
-      <div class="d-flex justify-content-between align-items-center">
+<v-row class="mb-6" dense>
+  <v-col cols="12" md="6">
+    <v-card elevation="0" class="pa-4" border="md">
+      <div class="d-flex align-center justify-space-between">
         <div>
-          <div class="text-muted">SOD</div>
-          <div class="h5 mb-0"><%= sodUser ? sodUser.name : 'Not set' %></div>
+          <div class="text-medium-emphasis mb-1">SOD</div>
+          <div class="text-h6"><%= sodUser ? sodUser.name : 'Not set' %></div>
         </div>
-        <a class="btn btn-outline-primary btn-sm" href="/users">Manage</a>
+        <v-btn variant="tonal" color="primary" href="/users">Manage</v-btn>
       </div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="card p-3">
-      <div class="d-flex justify-content-between align-items-center">
+    </v-card>
+  </v-col>
+  <v-col cols="12" md="6">
+    <v-card elevation="0" class="pa-4" border="md">
+      <div class="d-flex align-center justify-space-between">
         <div>
-          <div class="text-muted">Key-B</div>
-          <div class="h5 mb-0"><%= keybUser ? keybUser.name : 'Not set' %></div>
+          <div class="text-medium-emphasis mb-1">Key‑B</div>
+          <div class="text-h6"><%= keybUser ? keybUser.name : 'Not set' %></div>
         </div>
-        <a class="btn btn-outline-primary btn-sm" href="/users">Manage</a>
+        <v-btn variant="tonal" color="primary" href="/users">Manage</v-btn>
       </div>
-    </div>
-  </div>
+    </v-card>
+  </v-col>
   
-</div>
+</v-row>
 
-<div class="card">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="mb-0">Recent Bookings</h5>
-      <a href="/bookings" class="btn btn-sm btn-secondary">View all</a>
-    </div>
-    <div class="table-responsive">
-      <table class="table align-middle">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>User</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Status</th>
-            <th>Opener</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% if (recentBookings && recentBookings.length) { %>
-            <% recentBookings.forEach(b => { %>
-              <tr>
-                <td class="text-nowrap"><code><%= b.id %></code></td>
-                <td><%= b.user ? b.user.name : 'Unknown' %></td>
-                <td><%= formatDateTime(b.start) %></td>
-                <td><%= formatDateTime(b.end) %></td>
-                <td>
-                  <span class="badge bg-<%= b.status === 'completed' ? 'success' : (b.status === 'active' ? 'primary' : (b.status === 'overdue' ? 'danger' : (b.status === 'cancelled' ? 'secondary' : 'warning'))) %>">
-                    <%= b.status %>
-                  </span>
-                </td>
-                <td><%= b.opener && b.opener.type ? b.opener.type.toUpperCase() : '-' %></td>
-              </tr>
-            <% }) %>
-          <% } else { %>
-            <tr><td colspan="6" class="text-center text-muted">No bookings found</td></tr>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<v-card elevation="0" border="md">
+  <v-card-title class="d-flex align-center justify-space-between">
+    <div>Recent Bookings</div>
+    <v-btn size="small" variant="text" href="/bookings" prepend-icon="mdi-arrow-right">View all</v-btn>
+  </v-card-title>
+  <v-divider></v-divider>
+  <v-card-text>
+    <v-table density="comfortable">
+      <thead>
+        <tr>
+          <th class="text-left">ID</th>
+          <th class="text-left">User</th>
+          <th class="text-left">Start</th>
+          <th class="text-left">End</th>
+          <th class="text-left">Status</th>
+          <th class="text-left">Opener</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (recentBookings && recentBookings.length) { %>
+          <% recentBookings.forEach(b => { %>
+            <tr>
+              <td><code><%= b.id %></code></td>
+              <td><%= b.user ? b.user.name : 'Unknown' %></td>
+              <td><%= formatDateTime(b.start) %></td>
+              <td><%= formatDateTime(b.end) %></td>
+              <td><v-chip size="small" color="<%= b.status === 'completed' ? 'success' : (b.status === 'active' ? 'primary' : (b.status === 'overdue' ? 'error' : (b.status === 'cancelled' ? 'grey' : 'warning'))) %>" variant="tonal"><%= b.status %></v-chip></td>
+              <td><%= b.opener && b.opener.type ? b.opener.type.toUpperCase() : '-' %></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr><td colspan="6" class="text-center text-medium-emphasis">No bookings found</td></tr>
+        <% } %>
+      </tbody>
+    </v-table>
+  </v-card-text>
+</v-card>
