@@ -21,6 +21,12 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
 app.set('layout', 'layout');
+// Expose path and default title to views for active nav and titles
+app.use((req, res, next) => {
+  res.locals.path = req.path;
+  res.locals.title = '';
+  next();
+});
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',

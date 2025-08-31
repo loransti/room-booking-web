@@ -34,7 +34,7 @@
 
 <div class="card">
   <div class="table-responsive">
-    <table class="table align-middle mb-0">
+    <table class="table align-middle mb-0 stack-table">
       <thead>
         <tr>
           <th>ID</th>
@@ -50,17 +50,17 @@
         <% if (bookings && bookings.length) { %>
           <% bookings.forEach(b => { %>
             <tr>
-              <td class="text-nowrap"><code><%= b.id %></code></td>
-              <td><%= b.user ? b.user.name : 'Unknown' %></td>
-              <td><%= formatDateTime(b.start) %></td>
-              <td><%= formatDateTime(b.end) %></td>
-              <td>
+              <td class="text-nowrap" data-label="ID"><code><%= b.id %></code></td>
+              <td data-label="User"><%= b.user ? b.user.name : 'Unknown' %></td>
+              <td data-label="Start"><%= formatDateTime(b.start) %></td>
+              <td data-label="End"><%= formatDateTime(b.end) %></td>
+              <td data-label="Status">
                 <span class="badge bg-<%= b.status === 'completed' ? 'success' : (b.status === 'active' ? 'primary' : (b.status === 'overdue' ? 'danger' : (b.status === 'cancelled' ? 'secondary' : 'warning'))) %>">
                   <%= b.status %>
                 </span>
               </td>
-              <td><%= b.opener && b.opener.type ? b.opener.type.toUpperCase() : '-' %></td>
-              <td class="text-nowrap">
+              <td data-label="Opener"><%= b.opener && b.opener.type ? b.opener.type.toUpperCase() : '-' %></td>
+              <td class="text-nowrap" data-label="Actions">
                 <% const canCancel = ['confirmed','active'].includes(b.status); %>
                 <% const canForceClose = b.status === 'active'; %>
                 <button class="btn btn-sm btn-outline-danger me-1" onclick="cancelBooking('<%= b.id %>')" <%= canCancel ? '' : 'disabled' %>>Cancel</button>

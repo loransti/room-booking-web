@@ -6,7 +6,7 @@
 
 <div class="card">
   <div class="table-responsive">
-    <table class="table align-middle mb-0">
+    <table class="table align-middle mb-0 stack-table">
       <thead>
         <tr>
           <th>Name</th>
@@ -21,16 +21,16 @@
         <% if (users && users.length) { %>
           <% users.forEach(u => { %>
             <tr>
-              <td><%= u.name || '-' %></td>
-              <td><%= u.username ? '@' + u.username : '-' %></td>
-              <td><code><%= u.tg_id %></code></td>
-              <td><span class="badge bg-<%= u.role === 'admin' ? 'primary' : 'secondary' %>"><%= u.role %></span></td>
-              <td class="text-center">
+              <td data-label="Name"><%= u.name || '-' %></td>
+              <td data-label="Username"><%= u.username ? '@' + u.username : '-' %></td>
+              <td data-label="Telegram ID"><code><%= u.tg_id %></code></td>
+              <td data-label="Role"><span class="badge bg-<%= u.role === 'admin' ? 'primary' : 'secondary' %>"><%= u.role %></span></td>
+              <td class="text-center" data-label="SOD">
                 <button class="btn btn-sm <%= sodTgId === u.tg_id ? 'btn-success' : 'btn-outline-secondary' %>" onclick="setOpener('sod', <%= u.tg_id %>)">
                   <i class="bi bi-key"></i>
                 </button>
               </td>
-              <td class="text-center">
+              <td class="text-center" data-label="Key‑B">
                 <button class="btn btn-sm <%= keybTgId === u.tg_id ? 'btn-success' : 'btn-outline-secondary' %>" onclick="setOpener('keyb', <%= u.tg_id %>)">
                   <i class="bi bi-door-closed"></i>
                 </button>
