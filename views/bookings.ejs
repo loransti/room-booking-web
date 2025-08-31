@@ -1,84 +1,91 @@
 <% title = 'Bookings' %>
-<v-row align="center" class="mb-4">
-  <v-col cols="12" md="6">
-    <h2 class="mb-0">Bookings</h2>
-  </v-col>
-  <v-col cols="12" md="6" class="d-flex justify-end">
-    <v-btn variant="tonal" color="secondary" href="/api/export" prepend-icon="mdi-download">Export CSV</v-btn>
-  </v-col>
-</v-row>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Bookings</h2>
+  <div>
+    <a class="btn btn-outline-secondary btn-sm" href="/api/export">
+      <i class="bi bi-download me-1"></i> Export CSV
+    </a>
+  </div>
+</div>
 
-<v-card elevation="0" class="mb-4" border="md">
-  <v-card-text>
-    <form class="d-flex flex-wrap align-center gap-3">
-      <div>
-        <label class="text-medium-emphasis d-block mb-1">Status</label>
-        <select name="status" class="v-field v-field--variant-filled" style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e6e8ec;">
-          <option value="" <%= !query.status ? 'selected' : '' %>>All</option>
-          <option value="confirmed" <%= query.status === 'confirmed' ? 'selected' : '' %>>Confirmed</option>
-          <option value="active" <%= query.status === 'active' ? 'selected' : '' %>>Active</option>
-          <option value="completed" <%= query.status === 'completed' ? 'selected' : '' %>>Completed</option>
-          <option value="overdue" <%= query.status === 'overdue' ? 'selected' : '' %>>Overdue</option>
-          <option value="cancelled" <%= query.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
-        </select>
-      </div>
-      <div>
-        <label class="text-medium-emphasis d-block mb-1">Date</label>
-        <input type="date" name="date" value="<%= query.date || '' %>" class="v-field v-field--variant-filled" style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e6e8ec;">
-      </div>
-      <div class="ml-auto">
-        <v-btn color="primary" type="submit" prepend-icon="mdi-filter">Filter</v-btn>
-        <v-btn variant="text" href="/bookings">Reset</v-btn>
-      </div>
-    </form>
-  </v-card-text>
-</v-card>
+<form class="row g-2 align-items-end mb-3">
+  <div class="col-md-3">
+    <label class="form-label">Status</label>
+    <select name="status" class="form-select">
+      <option value="" <%= !query.status ? 'selected' : '' %>>All</option>
+      <option value="confirmed" <%= query.status === 'confirmed' ? 'selected' : '' %>>Confirmed</option>
+      <option value="active" <%= query.status === 'active' ? 'selected' : '' %>>Active</option>
+      <option value="completed" <%= query.status === 'completed' ? 'selected' : '' %>>Completed</option>
+      <option value="overdue" <%= query.status === 'overdue' ? 'selected' : '' %>>Overdue</option>
+      <option value="cancelled" <%= query.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Date</label>
+    <input type="date" name="date" class="form-control" value="<%= query.date || '' %>">
+  </div>
+  <div class="col-md-3">
+    <button type="submit" class="btn btn-primary w-100">Filter</button>
+  </div>
+  <div class="col-md-3">
+    <a href="/bookings" class="btn btn-outline-secondary w-100">Reset</a>
+  </div>
+</form>
 
-<v-card elevation="0" border="md">
-  <v-table density="comfortable">
-    <thead>
-      <tr>
-        <th class="text-left">ID</th>
-        <th class="text-left">User</th>
-        <th class="text-left">Start</th>
-        <th class="text-left">End</th>
-        <th class="text-left">Status</th>
-        <th class="text-left">Opener</th>
-        <th class="text-left">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% if (bookings && bookings.length) { %>
-        <% bookings.forEach(b => { %>
-          <tr>
-            <td><code><%= b.id %></code></td>
-            <td><%= b.user ? b.user.name : 'Unknown' %></td>
-            <td><%= formatDateTime(b.start) %></td>
-            <td><%= formatDateTime(b.end) %></td>
-            <td><v-chip size="small" color="<%= b.status === 'completed' ? 'success' : (b.status === 'active' ? 'primary' : (b.status === 'overdue' ? 'error' : (b.status === 'cancelled' ? 'grey' : 'warning'))) %>" variant="tonal"><%= b.status %></v-chip></td>
-            <td><%= b.opener && b.opener.type ? b.opener.type.toUpperCase() : '-' %></td>
-            <td>
-              <% const canCancel = ['confirmed','active'].includes(b.status); %>
-              <% const canForceClose = b.status === 'active'; %>
-              <v-btn size="small" color="error" variant="tonal" class="mr-2" onclick="cancelBooking('<%= b.id %>')" <%= canCancel ? '' : 'disabled' %> prepend-icon="mdi-close-circle">Cancel</v-btn>
-              <v-btn size="small" color="warning" variant="tonal" onclick="forceClose('<%= b.id %>')" <%= canForceClose ? '' : 'disabled' %> prepend-icon="mdi-lock-alert">Force Close</v-btn>
-            </td>
-          </tr>
-        <% }) %>
-      <% } else { %>
-        <tr><td colspan="7" class="text-center text-medium-emphasis">No bookings found</td></tr>
-      <% } %>
-    </tbody>
-  </v-table>
-  <v-divider></v-divider>
-  <v-card-actions>
-    <div class="d-flex align-center flex-wrap w-100">
-      <% for (let p = 1; p <= totalPages; p++) { %>
-        <v-btn class="mr-1 mb-1" size="small" variant="<%= p === currentPage ? 'flat' : 'tonal' %>" color="primary" href="/bookings?<%= new URLSearchParams(Object.assign({}, query, { page: p })).toString() %>"><%= p %></v-btn>
-      <% } %>
-    </div>
-  </v-card-actions>
-</v-card>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0 stack-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Status</th>
+          <th>Opener</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (bookings && bookings.length) { %>
+          <% bookings.forEach(b => { %>
+            <tr>
+              <td class="text-nowrap" data-label="ID"><code><%= b.id %></code></td>
+              <td data-label="User"><%= b.user ? b.user.name : 'Unknown' %></td>
+              <td data-label="Start"><%= formatDateTime(b.start) %></td>
+              <td data-label="End"><%= formatDateTime(b.end) %></td>
+              <td data-label="Status">
+                <span class="badge bg-<%= b.status === 'completed' ? 'success' : (b.status === 'active' ? 'primary' : (b.status === 'overdue' ? 'danger' : (b.status === 'cancelled' ? 'secondary' : 'warning'))) %>">
+                  <%= b.status %>
+                </span>
+              </td>
+              <td data-label="Opener"><%= b.opener && b.opener.type ? b.opener.type.toUpperCase() : '-' %></td>
+              <td class="text-nowrap" data-label="Actions">
+                <% const canCancel = ['confirmed','active'].includes(b.status); %>
+                <% const canForceClose = b.status === 'active'; %>
+                <button class="btn btn-sm btn-outline-danger me-1" onclick="cancelBooking('<%= b.id %>')" <%= canCancel ? '' : 'disabled' %>>Cancel</button>
+                <button class="btn btn-sm btn-outline-warning" onclick="forceClose('<%= b.id %>')" <%= canForceClose ? '' : 'disabled' %>>Force Close</button>
+              </td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr><td colspan="7" class="text-center text-muted">No bookings found</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body">
+    <nav>
+      <ul class="pagination mb-0">
+        <% for (let p = 1; p <= totalPages; p++) { %>
+          <li class="page-item <%= p === currentPage ? 'active' : '' %>">
+            <a class="page-link" href="/bookings?<%= new URLSearchParams(Object.assign({}, query, { page: p })).toString() %>"><%= p %></a>
+          </li>
+        <% } %>
+      </ul>
+    </nav>
+  </div>
+</div>
 
 <script>
   async function cancelBooking(id) {

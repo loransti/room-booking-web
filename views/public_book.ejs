@@ -4,78 +4,110 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Request a Booking · Room Manager</title>
-  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/vuetify@3.7.2/dist/vuetify.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #ffffff; --border: #e6e8ec; --text: #0a0a0a; --muted: #667085; --accent: #007aff; --radius: 14px; --shadow: 0 6px 20px rgba(0,0,0,0.06);
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    .wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); width: 100%; max-width: 540px; }
+    .brand { font-weight: 700; letter-spacing: .2px; }
+    .text-muted { color: var(--muted) !important; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); }
+    .btn-primary:hover { filter: brightness(0.98); }
+  </style>
 </head>
 <body>
-  <div id="app">
-    <v-app>
-      <v-main class="d-flex align-center justify-center" style="min-height: 100vh; background: linear-gradient(135deg,#f6f7fb,#eef2ff)">
-        <v-card elevation="8" class="pa-6" max-width="640" width="100%">
-          <div class="text-center mb-4">
-            <div class="text-h5">Room Manager</div>
-            <div class="text-medium-emphasis">Request a Booking</div>
+  <div class="wrap">
+    <div class="card">
+      <div class="card-body p-4 p-sm-5">
+        <div class="mb-4 text-center">
+          <div class="brand h3 mb-1">Room Manager</div>
+          <div class="text-muted">Request a Booking</div>
+        </div>
+
+        <% if (typeof successId !== 'undefined' && successId) { %>
+          <div class="alert alert-success">
+            Thank you! Your request <strong><%= successId %></strong> was submitted. You will be contacted after confirmation.
+          </div>
+        <% } %>
+
+        <% if (errors && errors.length) { %>
+          <div class="alert alert-danger">
+            <ul class="mb-0">
+              <% errors.forEach(e => { %>
+                <li><%= e %></li>
+              <% }) %>
+            </ul>
+          </div>
+        <% } %>
+
+        <form method="POST" action="/book" class="row g-3 needs-validation" novalidate>
+          <div class="col-12">
+            <label class="form-label">Full name</label>
+            <input name="name" class="form-control" required value="<%= (old && old.name) || '' %>">
+            <div class="invalid-feedback">Please enter your full name</div>
+          </div>
+          <div class="col-12 col-sm-6">
+            <label class="form-label">Room number</label>
+            <input name="room" class="form-control" required value="<%= (old && old.room) || '' %>">
+            <div class="invalid-feedback">Please enter your room number</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Contact</label>
+            <div class="row g-2">
+              <div class="col-12 col-sm-6">
+                <input type="email" name="email" class="form-control" placeholder="Email (optional)" value="<%= (old && old.email) || '' %>">
+              </div>
+              <div class="col-12 col-sm-6">
+                <input type="tel" name="phone" class="form-control" placeholder="Phone (optional)" value="<%= (old && old.phone) || '' %>">
+              </div>
+              <div class="col-12">
+                <div class="form-text">Provide at least one: email or phone. Telegram username is optional.</div>
+              </div>
+            </div>
+          </div>
+          <input type="hidden" name="tg_username" value="<%= (old && old.tg_username) || '' %>">
+          <div class="col-12 col-sm-6">
+            <label class="form-label">Date</label>
+            <input type="date" name="date" class="form-control" required value="<%= selectedDate %>">
+            <div class="invalid-feedback">Please pick a date</div>
+          </div>
+          <div class="col-12 col-sm-6">
+            <label class="form-label">Time slot</label>
+            <select name="slot" class="form-select" required>
+              <option value="">Select a slot</option>
+              <% timeSlots.forEach(s => { %>
+                <option value="<%= s.start %>" <%= old && parseInt(old.slot)===s.start ? 'selected' : '' %>><%= s.display %></option>
+              <% }) %>
+            </select>
+            <div class="invalid-feedback">Please choose a time slot</div>
           </div>
 
-          <% if (typeof successId !== 'undefined' && successId) { %>
-            <v-alert type="success" variant="tonal" class="mb-4">Thank you! Your request <strong><%= successId %></strong> was submitted. Check your email for confirmation.</v-alert>
-          <% } %>
-
-          <% if (errors && errors.length) { %>
-            <v-alert type="error" variant="tonal" class="mb-4">
-              <ul class="mb-0">
-                <% errors.forEach(e => { %>
-                  <li><%= e %></li>
-                <% }) %>
-              </ul>
-            </v-alert>
-          <% } %>
-
-          <form method="POST" action="/book">
-            <v-row>
-              <v-col cols="12">
-                <v-text-field label="Full name" name="name" required value="<%= (old && old.name) || '' %>" prepend-inner-icon="mdi-account"></v-text-field>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field label="Room number" name="room" required value="<%= (old && old.room) || '' %>" prepend-inner-icon="mdi-door"></v-text-field>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field label="Telegram username (optional)" name="tg_username" prefix="@" value="<%= (old && old.tg_username) || '' %>" prepend-inner-icon="mdi-telegram"></v-text-field>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field label="Email (optional)" name="email" type="email" value="<%= (old && old.email) || '' %>" prepend-inner-icon="mdi-email"></v-text-field>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field label="Phone (optional)" name="phone" type="tel" value="<%= (old && old.phone) || '' %>" prepend-inner-icon="mdi-phone"></v-text-field>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field label="Date" name="date" type="date" required value="<%= selectedDate %>" prepend-inner-icon="mdi-calendar"></v-text-field>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <label class="text-medium-emphasis d-block mb-1">Time slot</label>
-                <select name="slot" required class="v-field v-field--variant-filled" style="padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #e6e8ec;">
-                  <option value="">Select a slot</option>
-                  <% timeSlots.forEach(s => { %>
-                    <option value="<%= s.start %>" <%= old && parseInt(old.slot)===s.start ? 'selected' : '' %>><%= s.display %></option>
-                  <% }) %>
-                </select>
-              </v-col>
-              <v-col cols="12">
-                <div class="text-medium-emphasis mb-2">Provide at least one: email or phone. Telegram username is optional.</div>
-                <v-btn type="submit" color="primary" block prepend-icon="mdi-send">Submit request</v-btn>
-              </v-col>
-            </v-row>
-          </form>
-        </v-card>
-      </v-main>
-    </v-app>
+          <div class="col-12">
+            <button class="btn btn-primary w-100" type="submit">Submit request</button>
+          </div>
+          <div class="col-12 text-center">
+            <small class="text-muted">Requests are reviewed by admins before confirmation.</small>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vuetify@3.7.2/dist/vuetify.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const { createApp } = Vue; const { createVuetify } = Vuetify;
-    const vuetify = createVuetify();
-    createApp({}).use(vuetify).mount('#app');
+    (() => {
+      'use strict';
+      const forms = document.querySelectorAll('.needs-validation');
+      Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+          if (!form.checkValidity()) { event.preventDefault(); event.stopPropagation(); }
+          form.classList.add('was-validated');
+        }, false);
+      });
+    })();
   </script>
 </body>
 </html>
