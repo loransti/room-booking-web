@@ -290,6 +290,103 @@ app.post('/book', async (req, res) => {
   }
 });
 
+// Status lookup by reservation code
+app.get('/status', async (req, res) => {
+  try {
+    const code = (req.query.code || '').toUpperCase();
+    if (code) {
+      const r = await Request.findOne({ reservation_code: code });
+      if (r && r.public_token) {
+        return res.redirect(`/r/${r.public_token}`);
+      }
+    }
+    return res.render('status_lookup', { layout: false });
+  } catch (err) {
+    console.error('Status lookup error:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
+// Status page (magic link)
+app.get('/r/:token', async (req, res) => {
+  try {
+    const token = req.params.token;
+    const r = await Request.findOne({ public_token: token });
+    if (!r) return res.status(404).send('Not found');
+    return res.render('status', { layout: false, token });
+  } catch (err) {
+    console.error('Status page error:', err);
+    return res.status(500).send('Server error');
+  }
+});
+
+// Status JSON (polled by status page)
+app.get('/api/status/:token', async (req, res) => {
+  try {
+    const token = req.params.token;
+    const r = await Request.findOne({ public_token: token });
+    if (!r) return res.json({ ok: false, error: 'not_found' });
+    let booking = null;
+    let openerUser = null;
+    let residentUser = null;
+    if (r.created_booking_id) {
+      booking = await Booking.findOne({ id: r.created_booking_id });
+      if (booking && booking.user_tg) {
+        residentUser = await User.findOne({ tg_id: booking.user_tg });
+      }
+      if (booking && booking.opener && booking.opener.tg_id) {
+        openerUser = await User.findOne({ tg_id: booking.opener.tg_id });
+      }
+    }
+    return res.json({
+      ok: true,
+      request: {
+        id: r.id,
+        name: r.name,
+        room: r.room,
+        start: r.start,
+        end: r.end,
+        status: r.status,
+        reservation_code: r.reservation_code
+      },
+      booking: booking ? {
+        id: booking.id,
+        status: booking.status,
+        start: booking.start,
+        end: booking.end,
+        opener: booking.opener,
+        opened_at: booking.opened_at,
+        closed_at: booking.closed_at,
+        opener_name: openerUser ? (openerUser.name || ('@' + (openerUser.username || openerUser.tg_id))) : null,
+        resident_name: residentUser ? (residentUser.name || ('@' + (residentUser.username || residentUser.tg_id))) : null
+      } : null
+    });
+  } catch (err) {
+    console.error('Status JSON error:', err);
+    return res.json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Public cancel via token
+app.post('/api/status/:token/cancel', async (req, res) => {
+  try {
+    const token = req.params.token;
+    const r = await Request.findOne({ public_token: token });
+    if (!r) return res.json({ ok: false, error: 'not_found' });
+    if (r.created_booking_id) {
+      const booking = await Booking.findOne({ id: r.created_booking_id });
+      if (!booking) return res.json({ ok: false, error: 'booking_not_found' });
+      booking.status = 'cancelled';
+      await booking.save();
+    }
+    r.status = 'cancelled';
+    await r.save();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Cancel via token error:', err);
+    return res.json({ ok: false, error: 'server_error' });
+  }
+});
 // Webhook: called by the bot after approval to keep status in sync (no email)
 app.post('/api/request-approved', async (req, res) => {
   try {
