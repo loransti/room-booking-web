@@ -84,9 +84,21 @@ const auditSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now }
 });
 
+const requestSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  room: { type: String, required: true },
+  tg_username: String,
+  start: { type: Date, required: true },
+  end: { type: Date, required: true },
+  status: { type: String, enum: ['pending', 'approved', 'rejected', 'cancelled'], default: 'pending' },
+  created_at: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model('User', userSchema);
 const State = mongoose.model('State', stateSchema);
 const Booking = mongoose.model('Booking', bookingSchema);
+const Request = mongoose.model('Request', requestSchema);
 const Audit = mongoose.model('Audit', auditSchema);
 
 // Authentication middleware
@@ -134,6 +146,116 @@ const sendTelegramMessage = async (chatId, text) => {
     console.error('Error sending Telegram message:', e);
   }
 };
+
+const sendTelegramMessageWithKeyboard = async (chatId, text, keyboard) => {
+  try {
+    if (!BOT_TOKEN) return;
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, reply_markup: keyboard ? { inline_keyboard: keyboard } : undefined })
+    });
+    if (!res.ok) {
+      const errTxt = await res.text();
+      console.error('Telegram send failed:', errTxt);
+    }
+  } catch (e) {
+    console.error('Error sending Telegram message with keyboard:', e);
+  }
+};
+
+const generateRequestId = () => 'RQ' + Date.now().toString().slice(-8);
+
+// Public booking form (no auth)
+app.get('/book', async (req, res) => {
+  const selectedDate = req.query.date || moment().tz(TIMEZONE).format('YYYY-MM-DD');
+  const timeSlots = getTimeSlots();
+  res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {} });
+});
+
+app.post('/book', async (req, res) => {
+  try {
+    const { name, room, tg_username, date, slot } = req.body;
+    const errors = [];
+    const timeSlots = getTimeSlots();
+
+    if (!name || name.trim().length < 2) errors.push('Please enter your full name.');
+    if (!room || room.trim().length < 1) errors.push('Please enter your room number.');
+    if (!date) errors.push('Please select a date.');
+    const startHour = parseInt(slot, 10);
+    if (Number.isNaN(startHour)) errors.push('Please select a time slot.');
+
+    const selectedDate = date || moment().tz(TIMEZONE).format('YYYY-MM-DD');
+    let start = null, end = null;
+    if (date && !Number.isNaN(startHour)) {
+      const m = moment.tz(`${date} ${String(startHour).padStart(2, '0')}:00`, 'YYYY-MM-DD HH:mm', TIMEZONE);
+      start = m.toDate();
+      end = m.clone().add(2, 'hours').toDate();
+      if (m.isBefore(moment().tz(TIMEZONE).add(30, 'minutes'))) {
+        errors.push('Please choose a future time slot (at least 30 minutes from now).');
+      }
+    }
+
+    if (errors.length) {
+      return res.status(400).render('public_book', { layout: false, selectedDate, timeSlots, errors, old: req.body });
+    }
+
+    // Check conflicts with existing bookings
+    const conflict = await Booking.findOne({
+      status: { $in: ['confirmed', 'active'] },
+      $or: [
+        { start: { $lt: end }, end: { $gt: start } }
+      ]
+    });
+    if (conflict) {
+      return res.status(409).render('public_book', { layout: false, selectedDate, timeSlots, errors: ['Selected slot is already booked. Please choose another.'], old: req.body });
+    }
+
+    const reqId = generateRequestId();
+    const requestDoc = await Request.create({
+      id: reqId,
+      name: name.trim(),
+      room: room.trim(),
+      tg_username: tg_username ? tg_username.replace('@','').trim() : undefined,
+      start,
+      end,
+      status: 'pending'
+    });
+
+    // Notify SOD, Key-B, and Admins
+    const [sodState, keybState, admins] = await Promise.all([
+      State.findOne({ key: 'sod_tg' }),
+      State.findOne({ key: 'keyb_tg' }),
+      User.find({ role: 'admin' })
+    ]);
+
+    const when = `${formatDateTime(start)} - ${formatDateTime(end)}`;
+    const who = `${requestDoc.name} (Room ${requestDoc.room})${requestDoc.tg_username ? `, @${requestDoc.tg_username}` : ''}`;
+    const msg = `🆕 Booking request (pending)\n\n👤 ${who}\n📅 ${when}\n📋 Request: ${requestDoc.id}\n\nPlease confirm in the admin panel.`;
+
+    const keyboard = [
+      // Buttons are for bot to handle if you add handlers later
+      [
+        { text: '✅ Approve', callback_data: `req_approve_${requestDoc.id}` },
+        { text: '❌ Reject', callback_data: `req_reject_${requestDoc.id}` }
+      ]
+    ];
+
+    const recipients = new Set();
+    if (sodState && sodState.value) recipients.add(parseInt(sodState.value));
+    if (keybState && keybState.value) recipients.add(parseInt(keybState.value));
+    admins.forEach(a => a && a.tg_id && recipients.add(a.tg_id));
+    for (const chatId of recipients) {
+      await sendTelegramMessageWithKeyboard(chatId, msg, keyboard);
+    }
+
+    res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {}, successId: requestDoc.id });
+  } catch (error) {
+    console.error('Public booking error:', error);
+    res.status(500).send('Server error');
+  }
+});
 
 // Routes
 
