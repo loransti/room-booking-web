@@ -27,7 +27,7 @@
           <div class="text-muted">Request a Booking</div>
         </div>
 
-        <% if (successId) { %>
+        <% if (typeof successId !== 'undefined' && successId) { %>
           <div class="alert alert-success">
             Thank you! Your request <strong><%= successId %></strong> was submitted. You will be contacted after confirmation.
           </div>
@@ -103,4 +103,3 @@
   </script>
 </body>
 </html>
-

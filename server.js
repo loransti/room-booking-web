@@ -171,7 +171,7 @@ const generateRequestId = () => 'RQ' + Date.now().toString().slice(-8);
 app.get('/book', async (req, res) => {
   const selectedDate = req.query.date || moment().tz(TIMEZONE).format('YYYY-MM-DD');
   const timeSlots = getTimeSlots();
-  res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {} });
+  res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {}, successId: null });
 });
 
 app.post('/book', async (req, res) => {
