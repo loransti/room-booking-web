@@ -9,8 +9,11 @@
 </head>
 <body>
   <div id="app">
-    <v-app>
-      <v-main class="d-flex align-center justify-center" style="min-height:100vh; background: linear-gradient(135deg,#f6f7fb,#eef2ff)">
+    <v-app :theme="state.theme">
+      <v-main class="d-flex align-center justify-center" style="min-height:100vh;">
+        <v-btn icon variant="text" class="position-absolute" style="top:12px; right:12px" @click="toggleTheme" :title="state.theme==='rmDark' ? 'Light mode' : 'Dark mode'">
+          <v-icon :icon="state.theme==='rmDark' ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"></v-icon>
+        </v-btn>
         <v-card elevation="8" class="pa-6 text-center" max-width="520" width="100%">
           <% if (ok) { %>
             <div class="text-h4 mb-2">✅ Confirmed</div>
@@ -31,6 +34,22 @@
   </div>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/vuetify@3.7.2/dist/vuetify.min.js"></script>
-  <script>const { createApp } = Vue; const { createVuetify } = Vuetify; createApp({}).use(createVuetify()).mount('#app');</script>
+  <script>
+    const { createApp, reactive } = Vue; const { createVuetify } = Vuetify;
+    const vuetify = createVuetify({
+      theme: {
+        defaultTheme: 'rmTheme',
+        themes: {
+          rmTheme: { dark: false, colors: { primary:'#7c3aed', secondary:'#06b6d4', surface:'#ffffff', background:'#f6f7fb' } },
+          rmDark: { dark: true, colors: { primary:'#9E7CFF', secondary:'#3bd0e5', surface:'#181A1F', background:'#0F1115' } }
+        }
+      }
+    });
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedTheme = localStorage.getItem('rm-theme');
+    const state = reactive({ theme: savedTheme || (prefersDark ? 'rmDark':'rmTheme') });
+    function toggleTheme(){ state.theme = state.theme==='rmDark'?'rmTheme':'rmDark'; localStorage.setItem('rm-theme', state.theme); }
+    createApp({ setup(){ return { state, toggleTheme }; } }).use(vuetify).mount('#app');
+  </script>
 </body>
 </html>

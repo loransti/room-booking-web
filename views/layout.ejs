@@ -16,7 +16,7 @@
 </head>
 <body>
   <div id="app">
-    <v-app>
+    <v-app :theme="state.theme">
       <v-app-bar elevation="0" density="comfortable" flat color="surface" :border="'b sm'">
         <v-container class="d-flex align-center justify-space-between">
           <div class="d-flex align-center gap-2">
@@ -29,6 +29,9 @@
             <v-btn variant="text" :class="{ 'text-primary': state.path.startsWith('/calendar') }" href="/calendar" prepend-icon="mdi-calendar-range">Calendar</v-btn>
             <v-btn variant="text" :class="{ 'text-primary': state.path.startsWith('/users') }" href="/users" prepend-icon="mdi-account-group">Users</v-btn>
             <v-btn variant="text" href="/logout" prepend-icon="mdi-logout">Logout</v-btn>
+            <v-btn icon variant="text" @click="toggleTheme" :title="state.theme==='rmDark' ? 'Light mode' : 'Dark mode'">
+              <v-icon :icon="state.theme==='rmDark' ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"></v-icon>
+            </v-btn>
           </div>
         </v-container>
       </v-app-bar>
@@ -51,18 +54,36 @@
         defaultTheme: 'rmTheme',
         themes: {
           rmTheme: {
+            dark: false,
             colors: {
               primary: '#7c3aed',
               secondary: '#06b6d4',
               surface: '#ffffff',
-              background: '#f6f7fb'
+              background: '#f6f7fb',
+              error: '#e5484d',
+              success: '#16a34a'
+            }
+          },
+          rmDark: {
+            dark: true,
+            colors: {
+              primary: '#9E7CFF',
+              secondary: '#3bd0e5',
+              surface: '#181A1F',
+              background: '#0F1115',
+              error: '#ff6b6b',
+              success: '#4dd79a'
             }
           }
         }
       }
     });
-    const state = reactive({ path: '<%= path %>' });
-    const app = createApp({ setup(){ return { state }; } });
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedTheme = localStorage.getItem('rm-theme');
+    const initialTheme = savedTheme || (prefersDark ? 'rmDark' : 'rmTheme');
+    const state = reactive({ path: '<%= path %>', theme: initialTheme });
+    function toggleTheme(){ state.theme = state.theme === 'rmDark' ? 'rmTheme' : 'rmDark'; localStorage.setItem('rm-theme', state.theme); }
+    const app = createApp({ setup(){ return { state, toggleTheme }; } });
     app.use(vuetify);
     app.mount('#app');
     window.appState = state;
