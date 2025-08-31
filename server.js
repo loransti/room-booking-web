@@ -74,9 +74,20 @@ const bookingSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now }
 });
 
+const auditSchema = new mongoose.Schema({
+  type: { type: String, required: true }, // e.g., 'opener_change'
+  role: String, // 'sod' | 'keyb'
+  actor_tg: Number,
+  old_tg: Number,
+  new_tg: Number,
+  source: { type: String, default: 'web' },
+  created_at: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model('User', userSchema);
 const State = mongoose.model('State', stateSchema);
 const Booking = mongoose.model('Booking', bookingSchema);
+const Audit = mongoose.model('Audit', auditSchema);
 
 // Authentication middleware
 const requireAuth = (req, res, next) => {
@@ -401,6 +412,16 @@ app.post('/api/set-opener', requireAuth, async (req, res) => {
     const adminMsg = `🔔 ${roleLabel} changed\n\nFrom: ${oldName}\nTo: ${newName}\nAt: ${nowStr}\nSource: Web admin`;
     admins.forEach(a => {
       if (a && a.tg_id) sendTelegramMessage(a.tg_id, adminMsg).catch(() => {});
+    });
+
+    // Audit log
+    await Audit.create({
+      type: 'opener_change',
+      role: type,
+      actor_tg: null, // web session (unknown tg)
+      old_tg: oldTgId || null,
+      new_tg: newTgId,
+      source: 'web'
     });
 
     res.json({ success: true, message: `${type.toUpperCase()} updated and notified` });
