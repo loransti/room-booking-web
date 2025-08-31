@@ -54,13 +54,21 @@
             <input name="room" class="form-control" required value="<%= (old && old.room) || '' %>">
             <div class="invalid-feedback">Please enter your room number</div>
           </div>
-          <div class="col-12 col-sm-6">
-            <label class="form-label">Telegram username (optional)</label>
-            <div class="input-group">
-              <span class="input-group-text">@</span>
-              <input name="tg_username" class="form-control" placeholder="yourname" value="<%= (old && old.tg_username) || '' %>">
+          <div class="col-12">
+            <label class="form-label">Contact</label>
+            <div class="row g-2">
+              <div class="col-12 col-sm-6">
+                <input type="email" name="email" class="form-control" placeholder="Email (optional)" value="<%= (old && old.email) || '' %>">
+              </div>
+              <div class="col-12 col-sm-6">
+                <input type="tel" name="phone" class="form-control" placeholder="Phone (optional)" value="<%= (old && old.phone) || '' %>">
+              </div>
+              <div class="col-12">
+                <div class="form-text">Provide at least one: email or phone. Telegram username is optional.</div>
+              </div>
             </div>
           </div>
+          <input type="hidden" name="tg_username" value="<%= (old && old.tg_username) || '' %>">
           <div class="col-12 col-sm-6">
             <label class="form-label">Date</label>
             <input type="date" name="date" class="form-control" required value="<%= selectedDate %>">

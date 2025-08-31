@@ -89,6 +89,8 @@ const requestSchema = new mongoose.Schema({
   name: { type: String, required: true },
   room: { type: String, required: true },
   tg_username: String,
+  email: String,
+  phone: String,
   start: { type: Date, required: true },
   end: { type: Date, required: true },
   status: { type: String, enum: ['pending', 'approved', 'rejected', 'cancelled'], default: 'pending' },
@@ -176,12 +178,23 @@ app.get('/book', async (req, res) => {
 
 app.post('/book', async (req, res) => {
   try {
-    const { name, room, tg_username, date, slot } = req.body;
+    const { name, room, tg_username, email, phone, date, slot } = req.body;
     const errors = [];
     const timeSlots = getTimeSlots();
 
     if (!name || name.trim().length < 2) errors.push('Please enter your full name.');
     if (!room || room.trim().length < 1) errors.push('Please enter your room number.');
+    const emailVal = (email || '').trim();
+    const phoneVal = (phone || '').trim();
+    if (!emailVal && !phoneVal) {
+      errors.push('Please provide an email or phone number.');
+    }
+    if (emailVal && !/^\S+@\S+\.[\w\-]{2,}$/.test(emailVal)) {
+      errors.push('Please enter a valid email address.');
+    }
+    if (phoneVal && !/^[+]?[- 0-9()]{7,20}$/.test(phoneVal)) {
+      errors.push('Please enter a valid phone number.');
+    }
     if (!date) errors.push('Please select a date.');
     const startHour = parseInt(slot, 10);
     if (Number.isNaN(startHour)) errors.push('Please select a time slot.');
@@ -218,6 +231,8 @@ app.post('/book', async (req, res) => {
       name: name.trim(),
       room: room.trim(),
       tg_username: tg_username ? tg_username.replace('@','').trim() : undefined,
+      email: emailVal || undefined,
+      phone: phoneVal || undefined,
       start,
       end,
       status: 'pending'
@@ -231,7 +246,12 @@ app.post('/book', async (req, res) => {
     ]);
 
     const when = `${formatDateTime(start)} - ${formatDateTime(end)}`;
-    const who = `${requestDoc.name} (Room ${requestDoc.room})${requestDoc.tg_username ? `, @${requestDoc.tg_username}` : ''}`;
+    const contact = [
+      requestDoc.tg_username ? `@${requestDoc.tg_username}` : null,
+      requestDoc.email ? `📧 ${requestDoc.email}` : null,
+      requestDoc.phone ? `📞 ${requestDoc.phone}` : null
+    ].filter(Boolean).join(' · ');
+    const who = `${requestDoc.name} (Room ${requestDoc.room})${contact ? `\n${contact}` : ''}`;
     const msg = `🆕 Booking request (pending)\n\n👤 ${who}\n📅 ${when}\n📋 Request: ${requestDoc.id}\n\nPlease confirm in the admin panel.`;
 
     const keyboard = [
