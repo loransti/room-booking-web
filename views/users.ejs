@@ -1,2 +1,67 @@
-<h2>Users</h2>
-<p>Users content will load here</p>
+<% title = 'Users' %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Users</h2>
+  <div class="text-muted small">Click to set SOD / Key‑B</div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Username</th>
+          <th>Telegram ID</th>
+          <th>Role</th>
+          <th class="text-center">SOD</th>
+          <th class="text-center">Key‑B</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (users && users.length) { %>
+          <% users.forEach(u => { %>
+            <tr>
+              <td><%= u.name || '-' %></td>
+              <td><%= u.username ? '@' + u.username : '-' %></td>
+              <td><code><%= u.tg_id %></code></td>
+              <td><span class="badge bg-<%= u.role === 'admin' ? 'primary' : 'secondary' %>"><%= u.role %></span></td>
+              <td class="text-center">
+                <button class="btn btn-sm <%= sodTgId === u.tg_id ? 'btn-success' : 'btn-outline-secondary' %>" onclick="setOpener('sod', <%= u.tg_id %>)">
+                  <i class="bi bi-key"></i>
+                </button>
+              </td>
+              <td class="text-center">
+                <button class="btn btn-sm <%= keybTgId === u.tg_id ? 'btn-success' : 'btn-outline-secondary' %>" onclick="setOpener('keyb', <%= u.tg_id %>)">
+                  <i class="bi bi-door-closed"></i>
+                </button>
+              </td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr><td colspan="6" class="text-center text-muted">No users found</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body text-muted small">
+    • Green button indicates currently set opener.
+  </div>
+</div>
+
+<script>
+  async function setOpener(type, userId) {
+    const label = type === 'sod' ? 'SOD' : 'Key‑B';
+    if (!confirm(`Set ${label} to user ${userId}?`)) return;
+    const res = await fetch('/api/set-opener', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, userId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      location.reload();
+    } else {
+      alert(data.message || 'Failed to update');
+    }
+  }
+</script>

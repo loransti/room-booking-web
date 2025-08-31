@@ -4,6 +4,7 @@ const moment = require('moment-timezone');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const path = require('path');
+const expressLayouts = require('express-ejs-layouts');
 require('dotenv').config();
 
 const app = express();
@@ -18,6 +19,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.use(expressLayouts);
+app.set('layout', 'layout');
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
@@ -96,7 +99,7 @@ const getTimeSlots = () => {
 
 // Login page
 app.get('/login', (req, res) => {
-  res.render('login', { error: req.query.error });
+  res.render('login', { error: req.query.error, layout: false });
 });
 
 app.post('/login', async (req, res) => {

@@ -1,2 +1,65 @@
-<h2>Calendar</h2>
-<p>Calendar content will load here</p>
+<% title = 'Calendar' %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Calendar</h2>
+  <form class="d-flex align-items-center" method="get">
+    <input type="date" class="form-control me-2" name="date" value="<%= selectedDate %>">
+    <button class="btn btn-primary">Go</button>
+  </form>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-3">
+      <h6 class="text-muted mb-3">Time Slots for <%= moment(selectedDate).format('DD.MM.YYYY') %></h6>
+      <div class="list-group">
+        <% timeSlots.forEach(slot => { %>
+          <% const startSlot = moment(selectedDate + ' ' + String(slot.start).padStart(2,'0') + ':00'); %>
+          <% const match = bookings.find(b => moment(b.start).isSame(startSlot, 'hour')); %>
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <strong><%= slot.display %></strong>
+              <% if (match) { %>
+                <span class="ms-2 badge bg-<%= match.status === 'completed' ? 'success' : (match.status === 'active' ? 'primary' : (match.status === 'overdue' ? 'danger' : (match.status === 'cancelled' ? 'secondary' : 'warning'))) %>"><%= match.status %></span>
+              <% } %>
+            </div>
+            <div class="text-end">
+              <% if (match) { %>
+                <div><i class="bi bi-person"></i> <%= match.user ? match.user.name : 'Unknown' %></div>
+                <small class="text-muted"><%= formatDateTime(match.start) %> - <%= formatDateTime(match.end) %></small>
+              <% } else { %>
+                <span class="text-success">Available</span>
+              <% } %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card p-3">
+      <h6 class="text-muted mb-3">Bookings on <%= moment(selectedDate).format('DD.MM.YYYY') %></h6>
+      <div class="list-group">
+        <% if (bookings && bookings.length) { %>
+          <% bookings.forEach(b => { %>
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <div><strong><%= b.user ? b.user.name : 'Unknown' %></strong></div>
+                  <small class="text-muted"><%= formatDateTime(b.start) %> - <%= formatDateTime(b.end) %></small>
+                </div>
+                <div>
+                  <span class="badge bg-<%= b.status === 'completed' ? 'success' : (b.status === 'active' ? 'primary' : (b.status === 'overdue' ? 'danger' : (b.status === 'cancelled' ? 'secondary' : 'warning'))) %>">
+                    <%= b.status %>
+                  </span>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        <% } else { %>
+          <div class="text-muted">No bookings</div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
