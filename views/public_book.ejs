@@ -29,7 +29,13 @@
 
         <% if (typeof successId !== 'undefined' && successId) { %>
           <div class="alert alert-success">
-            Thank you! Your request <strong><%= successId %></strong> was submitted. You will be contacted after confirmation.
+            <div class="mb-1">Thank you! Your request <strong><%= successId %></strong> was submitted.</div>
+            <% if (statusUrl && reservationCode) { %>
+              <div class="small">Reservation code: <code id="resCode"><%= reservationCode %></code></div>
+              <div class="mt-2">
+                <a class="btn btn-sm btn-primary" id="openStatus" href="<%= statusUrl %>">Open status</a>
+              </div>
+            <% } %>
           </div>
         <% } %>
 
@@ -119,6 +125,20 @@
         localStorage.setItem('rm-dark', document.body.classList.contains('dark'));
         this.querySelector('i').className = document.body.classList.contains('dark') ? 'bi bi-sun' : 'bi bi-moon';
       });
+    })();
+    (function(){
+      try {
+        var code = document.getElementById('resCode')?.textContent;
+        var link = document.getElementById('openStatus')?.getAttribute('href');
+        if (code && link) {
+          var list = JSON.parse(localStorage.getItem('rm-reservations')||'[]');
+          // avoid duplicates
+          if (!list.find(x => x.code === code)) {
+            list.push({ code: code, link: link, savedAt: Date.now() });
+            localStorage.setItem('rm-reservations', JSON.stringify(list));
+          }
+        }
+      } catch(e) {}
     })();
   </script>
 </body>

@@ -103,6 +103,9 @@ const requestSchema = new mongoose.Schema({
   start: { type: Date, required: true },
   end: { type: Date, required: true },
   status: { type: String, enum: ['pending', 'approved', 'rejected', 'cancelled'], default: 'pending' },
+  public_token: { type: String, unique: true },
+  reservation_code: { type: String, index: true },
+  created_booking_id: String,
   created_at: { type: Date, default: Date.now }
 });
 
@@ -193,12 +196,14 @@ const sendTelegramMessageWithKeyboard = async (chatId, text, keyboard) => {
 };
 
 const generateRequestId = () => 'RQ' + Date.now().toString().slice(-8);
+const generateToken = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+const generateCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 
 // Public booking form (no auth)
 app.get('/book', async (req, res) => {
   const selectedDate = req.query.date || moment().tz(TIMEZONE).format('YYYY-MM-DD');
   const timeSlots = getTimeSlots();
-  res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {}, successId: null });
+  res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {}, successId: null, statusUrl: null, reservationCode: null });
 });
 
 app.post('/book', async (req, res) => {
@@ -251,6 +256,10 @@ app.post('/book', async (req, res) => {
     }
 
     const reqId = generateRequestId();
+    const token = generateToken();
+    let code = generateCode();
+    const exists = await Request.findOne({ reservation_code: code });
+    if (exists) code = generateCode();
     const requestDoc = await Request.create({
       id: reqId,
       name: name.trim(),
@@ -260,7 +269,9 @@ app.post('/book', async (req, res) => {
       phone: phoneVal || undefined,
       start,
       end,
-      status: 'pending'
+      status: 'pending',
+      public_token: token,
+      reservation_code: code
     });
 
     // Notify SOD, Key-B, and Admins
@@ -295,14 +306,15 @@ app.post('/book', async (req, res) => {
       await sendTelegramMessageWithKeyboard(chatId, msg, keyboard);
     }
 
-    res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {}, successId: requestDoc.id });
+    const statusUrl = `/r/${token}`;
+    res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {}, successId: requestDoc.id, statusUrl, reservationCode: code });
   } catch (error) {
     console.error('Public booking error:', error);
   res.status(500).send('Server error');
   }
 });
 
-// Webhook: called by the bot after approval to trigger email notifications
+// Webhook: called by the bot after approval to keep status in sync (no email)
 app.post('/api/request-approved', async (req, res) => {
   try {
     const sig = req.get('x-webhook-secret');
@@ -331,41 +343,6 @@ app.post('/api/request-approved', async (req, res) => {
     requestDoc.status = 'approved';
     requestDoc.created_booking_id = finalBookingId;
     await requestDoc.save();
-
-    const when = `${formatDateTime(requestDoc.start)} - ${formatDateTime(requestDoc.end)}`;
-
-    // Email resident
-    if (requestDoc.email) {
-      const subject = `Your booking is confirmed ${finalBookingId}`;
-      const html = `
-        <p>Hello ${requestDoc.name},</p>
-        <p>Your booking is confirmed.</p>
-        <ul>
-          <li>When: <strong>${when}</strong></li>
-          <li>Room: <strong>${requestDoc.room}</strong></li>
-          <li>Booking ID: <strong>${finalBookingId}</strong></li>
-        </ul>
-        <p>Please be on time. If you need to cancel, reply to this email.</p>
-      `;
-      const text = `Your booking is confirmed.\nWhen: ${when}\nRoom: ${requestDoc.room}\nBooking ID: ${finalBookingId}`;
-      await sendEmail({ to: requestDoc.email, subject, text, html });
-    }
-
-    // Email admins/SOD list (configure NOTIFY_EMAILS with SOD/Key‑B emails)
-    if (NOTIFY_EMAILS.length) {
-      const subject = `Booking confirmed ${finalBookingId}`;
-      const lines = [
-        `👤 ${requestDoc.name} (Room ${requestDoc.room})`,
-        requestDoc.email ? `📧 ${requestDoc.email}` : null,
-        requestDoc.phone ? `📞 ${requestDoc.phone}` : null,
-        `📅 ${when}`,
-        `📋 ${finalBookingId}`
-      ].filter(Boolean);
-      const text = lines.join('\n');
-      const html = `<p>${lines.join('<br>')}</p>`;
-      await sendEmail({ to: NOTIFY_EMAILS.join(','), subject, text, html });
-    }
-
     return res.json({ ok: true, bookingId: finalBookingId });
   } catch (err) {
     console.error('request-approved webhook error:', err);
