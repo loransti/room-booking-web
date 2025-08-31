@@ -5,6 +5,7 @@ const session = require('express-session');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const expressLayouts = require('express-ejs-layouts');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -13,6 +14,14 @@ const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Change this!
 const TIMEZONE = process.env.TIMEZONE || 'Europe/Berlin';
 const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_PORT = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : undefined;
+const SMTP_SECURE = process.env.SMTP_SECURE === 'true' || false;
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const FROM_EMAIL = process.env.FROM_EMAIL || 'no-reply@example.com';
+const NOTIFY_EMAILS = (process.env.NOTIFY_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean);
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 // Middleware
 app.use(express.json());
@@ -57,7 +66,7 @@ const stateSchema = new mongoose.Schema({
 
 const bookingSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
-  user_tg: { type: Number, required: true },
+  user_tg: { type: Number },
   start: { type: Date, required: true },
   end: { type: Date, required: true },
   opener: {
@@ -125,6 +134,22 @@ const getTimeSlots = () => {
     slots.push({ start: hour, display: `${start}-${end}` });
   }
   return slots;
+};
+
+// Email transport
+let mailer = null;
+if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  mailer = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT || 587,
+    secure: SMTP_SECURE,
+    auth: { user: SMTP_USER, pass: SMTP_PASS }
+  });
+}
+
+const sendEmail = async ({ to, subject, text, html }) => {
+  if (!mailer) { console.warn('SMTP not configured; skip email to', to); return; }
+  await mailer.sendMail({ from: FROM_EMAIL, to, subject, text, html });
 };
 
 // Telegram notifications
@@ -273,7 +298,78 @@ app.post('/book', async (req, res) => {
     res.render('public_book', { layout: false, selectedDate, timeSlots, errors: null, old: {}, successId: requestDoc.id });
   } catch (error) {
     console.error('Public booking error:', error);
-    res.status(500).send('Server error');
+  res.status(500).send('Server error');
+  }
+});
+
+// Webhook: called by the bot after approval to trigger email notifications
+app.post('/api/request-approved', async (req, res) => {
+  try {
+    const sig = req.get('x-webhook-secret');
+    if (!WEBHOOK_SECRET || sig !== WEBHOOK_SECRET) {
+      return res.status(401).json({ ok: false, error: 'unauthorized' });
+    }
+    const { requestId, bookingId } = req.body || {};
+    if (!requestId) return res.status(400).json({ ok: false, error: 'missing requestId' });
+
+    const requestDoc = await Request.findOne({ id: requestId });
+    if (!requestDoc) return res.status(404).json({ ok: false, error: 'request_not_found' });
+
+    // If booking id missing, create booking with no telegram user
+    let finalBookingId = bookingId;
+    if (!finalBookingId) {
+      const gen = 'BK' + Date.now().toString().slice(-8);
+      const sodState = await State.findOne({ key: 'sod_tg' });
+      const keybState = await State.findOne({ key: 'keyb_tg' });
+      let opener = null;
+      if (sodState && sodState.value) opener = { type: 'sod', tg_id: parseInt(sodState.value) };
+      else if (keybState && keybState.value) opener = { type: 'keyb', tg_id: parseInt(keybState.value) };
+      await Booking.create({ id: gen, start: requestDoc.start, end: requestDoc.end, opener, status: 'confirmed' });
+      finalBookingId = gen;
+    }
+
+    requestDoc.status = 'approved';
+    requestDoc.created_booking_id = finalBookingId;
+    await requestDoc.save();
+
+    const when = `${formatDateTime(requestDoc.start)} - ${formatDateTime(requestDoc.end)}`;
+
+    // Email resident
+    if (requestDoc.email) {
+      const subject = `Your booking is confirmed ${finalBookingId}`;
+      const html = `
+        <p>Hello ${requestDoc.name},</p>
+        <p>Your booking is confirmed.</p>
+        <ul>
+          <li>When: <strong>${when}</strong></li>
+          <li>Room: <strong>${requestDoc.room}</strong></li>
+          <li>Booking ID: <strong>${finalBookingId}</strong></li>
+        </ul>
+        <p>Please be on time. If you need to cancel, reply to this email.</p>
+      `;
+      const text = `Your booking is confirmed.\nWhen: ${when}\nRoom: ${requestDoc.room}\nBooking ID: ${finalBookingId}`;
+      await sendEmail({ to: requestDoc.email, subject, text, html });
+    }
+
+    // Email admins/SOD list (configure NOTIFY_EMAILS with SOD/Key‑B emails)
+    if (NOTIFY_EMAILS.length) {
+      const subject = `Booking confirmed ${finalBookingId}`;
+      const lines = [
+        `👤 ${requestDoc.name} (Room ${requestDoc.room})`,
+        requestDoc.email ? `📧 ${requestDoc.email}` : null,
+        requestDoc.phone ? `📞 ${requestDoc.phone}` : null,
+        `📅 ${when}`,
+        `📋 ${finalBookingId}`
+      ].filter(Boolean);
+      const text = lines.join('\n');
+      const html = `<p>${lines.join('<br>')}</p>`;
+      await sendEmail({ to: NOTIFY_EMAILS.join(','), subject, text, html });
+    }
+
+    return res.json({ ok: true, bookingId: finalBookingId });
+  } catch (err) {
+    console.error('request-approved webhook error:', err);
+    return res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
 
