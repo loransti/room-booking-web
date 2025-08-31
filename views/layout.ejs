@@ -55,6 +55,18 @@
     .card.p-3, .card .card-body { padding: 18px !important; }
     h1, h2, h3, h4, h5 { letter-spacing: .2px; }
     .text-muted { color: var(--muted) !important; }
+    a { color: var(--accent); }
+    body.dark a { color: var(--accent); }
+    /* Dark mode form + table tweaks */
+    body.dark .form-control,
+    body.dark .form-select,
+    body.dark .form-check-input {
+      background-color: var(--card);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    body.dark .form-control::placeholder { color: var(--muted); }
+    body.dark .table { color: var(--text); }
 
     /* Table tweaks for cleaner look */
     .table { --bs-table-bg: transparent; }
@@ -97,6 +109,7 @@
       <nav class="nav">
         <a class="nav-link <%= path.startsWith('/admin') ? 'active' : '' %>" href="/admin"><i class="bi bi-speedometer2 me-1"></i> <span class="d-none d-sm-inline">Dashboard</span></a>
         <a class="nav-link <%= path.startsWith('/bookings') ? 'active' : '' %>" href="/bookings"><i class="bi bi-calendar-check me-1"></i> <span class="d-none d-sm-inline">Bookings</span></a>
+        <a class="nav-link <%= path.startsWith('/requests') ? 'active' : '' %>" href="/requests"><i class="bi bi-inbox me-1"></i> <span class="d-none d-sm-inline">Requests</span></a>
         <a class="nav-link <%= path.startsWith('/calendar') ? 'active' : '' %>" href="/calendar"><i class="bi bi-calendar3 me-1"></i> <span class="d-none d-sm-inline">Calendar</span></a>
         <a class="nav-link <%= path.startsWith('/users') ? 'active' : '' %>" href="/users"><i class="bi bi-people me-1"></i> <span class="d-none d-sm-inline">Users</span></a>
         <a class="nav-link" href="/logout"><i class="bi bi-box-arrow-right me-1"></i> <span class="d-none d-sm-inline">Logout</span></a>

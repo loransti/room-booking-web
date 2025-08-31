@@ -1,0 +1,107 @@
+<% title = 'Requests' %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Requests</h2>
+  <form class="d-flex gap-2" method="get">
+    <select name="status" class="form-select form-select-sm" style="width:auto">
+      <option value="" <%= !query.status ? 'selected' : '' %>>All</option>
+      <option value="pending" <%= query.status === 'pending' ? 'selected' : '' %>>Pending</option>
+      <option value="approved" <%= query.status === 'approved' ? 'selected' : '' %>>Approved</option>
+      <option value="rejected" <%= query.status === 'rejected' ? 'selected' : '' %>>Rejected</option>
+      <option value="cancelled" <%= query.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+    </select>
+    <button class="btn btn-sm btn-primary">Filter</button>
+    <a class="btn btn-sm btn-outline-secondary" href="/requests">Reset</a>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>By</th>
+          <th>Contact</th>
+          <th>Room</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Booking</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (requests && requests.length) { %>
+          <% requests.forEach(r => { %>
+            <tr>
+              <td><code><%= r.reservation_code || '-' %></code></td>
+              <td><%= r.name %></td>
+              <td>
+                <% const contacts = [];
+                   if (r.tg_username) contacts.push('@'+r.tg_username);
+                   if (r.email) contacts.push(r.email);
+                   if (r.phone) contacts.push(r.phone);
+                %>
+                <%= contacts.join(' · ') || '-' %>
+              </td>
+              <td><%= r.room %></td>
+              <td><%= formatDateTime(r.start) %></td>
+              <td><%= formatDateTime(r.end) %></td>
+              <td>
+                <span class="badge bg-<%= r.status === 'approved' ? 'success' : (r.status === 'pending' ? 'warning' : (r.status === 'cancelled' ? 'secondary' : 'danger')) %>"><%= r.status %></span>
+              </td>
+              <td><%= formatDateTime(r.created_at) %></td>
+              <td><code><%= r.created_booking_id || '-' %></code></td>
+              <td class="text-nowrap">
+                <button class="btn btn-sm btn-success me-1" onclick="approveReq('<%= r.id %>')" <%= r.status==='pending' ? '' : 'disabled' %>>Approve</button>
+                <button class="btn btn-sm btn-outline-danger me-1" onclick="cancelReq('<%= r.id %>')" <%= ['pending','approved'].includes(r.status) ? '' : 'disabled' %>>Cancel</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="rejectReq('<%= r.id %>')" <%= r.status==='pending' && !r.created_booking_id ? '' : 'disabled' %>>Reject</button>
+              </td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr><td colspan="10" class="text-center text-muted">No requests</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body">
+    <nav>
+      <ul class="pagination mb-0">
+        <% for (let p = 1; p <= totalPages; p++) { %>
+          <li class="page-item <%= p === currentPage ? 'active' : '' %>">
+            <a class="page-link" href="/requests?<%= new URLSearchParams(Object.assign({}, query, { page: p })).toString() %>"><%= p %></a>
+          </li>
+        <% } %>
+      </ul>
+    </nav>
+  </div>
+</div>
+
+<script>
+  async function approveReq(id){
+    if(!confirm('Approve this request and create a booking?')) return;
+    const res = await fetch(`/api/requests/${id}/approve`, { method: 'POST' });
+    const data = await res.json();
+    if(data.ok){ location.reload(); }
+    else if(data.error==='conflict'){ alert('Time slot already booked.');}
+    else{ alert('Failed to approve'); }
+  }
+  async function cancelReq(id){
+    if(!confirm('Cancel this request (and booking if exists)?')) return;
+    const res = await fetch(`/api/requests/${id}/cancel`, { method: 'POST' });
+    const data = await res.json();
+    if(data.ok){ location.reload(); }
+    else{ alert('Failed to cancel'); }
+  }
+  async function rejectReq(id){
+    if(!confirm('Reject this request?')) return;
+    const res = await fetch(`/api/requests/${id}/reject`, { method: 'POST' });
+    const data = await res.json();
+    if(data.ok){ location.reload(); }
+    else if(data.error==='already_booked'){ alert('Already booked; cancel instead.'); }
+    else if(data.error==='invalid_status'){ alert('Only pending requests can be rejected.'); }
+    else{ alert('Failed to reject'); }
+  }
+</script>

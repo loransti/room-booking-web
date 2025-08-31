@@ -64,10 +64,16 @@
           <div class="col-12">
             <label class="form-label">Contact</label>
             <div class="row g-2">
-              <div class="col-12 col-sm-6">
+              <div class="col-12 col-sm-4">
+                <div class="input-group">
+                  <span class="input-group-text">@</span>
+                  <input type="text" name="tg_username" class="form-control" placeholder="Telegram (optional)" value="<%= (old && old.tg_username) || '' %>">
+                </div>
+              </div>
+              <div class="col-12 col-sm-4">
                 <input type="email" name="email" class="form-control" placeholder="Email (optional)" value="<%= (old && old.email) || '' %>">
               </div>
-              <div class="col-12 col-sm-6">
+              <div class="col-12 col-sm-4">
                 <input type="tel" name="phone" class="form-control" placeholder="Phone (optional)" value="<%= (old && old.phone) || '' %>">
               </div>
               <div class="col-12">
@@ -75,7 +81,6 @@
               </div>
             </div>
           </div>
-          <input type="hidden" name="tg_username" value="<%= (old && old.tg_username) || '' %>">
           <div class="col-12 col-sm-6">
             <label class="form-label">Date</label>
             <input type="date" name="date" class="form-control" required value="<%= selectedDate %>">

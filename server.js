@@ -134,7 +134,7 @@ const getTimeSlots = () => {
 // Telegram notifications
 const sendTelegramMessage = async (chatId, text) => {
   try {
-    if (!BOT_TOKEN) {
+    if (!BOT_TOKEN || !chatId) {
       console.warn('BOT_TOKEN not configured; skipping Telegram notification');
       return;
     }
@@ -155,7 +155,7 @@ const sendTelegramMessage = async (chatId, text) => {
 
 const sendTelegramMessageWithKeyboard = async (chatId, text, keyboard) => {
   try {
-    if (!BOT_TOKEN) return;
+    if (!BOT_TOKEN || !chatId) return;
     const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
     const res = await fetch(url, {
       method: 'POST',
@@ -174,6 +174,7 @@ const sendTelegramMessageWithKeyboard = async (chatId, text, keyboard) => {
 const generateRequestId = () => 'RQ' + Date.now().toString().slice(-8);
 const generateToken = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 const generateCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
+const generateBookingId = () => 'BK' + Date.now().toString().slice(-8);
 
 // Public booking form (no auth)
 app.get('/book', async (req, res) => {
@@ -492,12 +493,19 @@ app.get('/admin', requireAuth, async (req, res) => {
       keybUser = await User.findOne({ tg_id: parseInt(keybState.value) });
     }
 
+    // Request counts for dashboard
+    const reqPending = await Request.countDocuments({ status: 'pending' });
+    const reqApproved = await Request.countDocuments({ status: 'approved' });
+    const reqCancelled = await Request.countDocuments({ status: 'cancelled' });
+    const reqRejected = await Request.countDocuments({ status: 'rejected' });
+
     res.render('dashboard', {
       stats: { totalBookings, activeBookings, totalUsers, overdueBookings },
       recentBookings: bookingsWithUsers,
       sodUser,
       keybUser,
-      formatDateTime
+      formatDateTime,
+      requestStats: { pending: reqPending, approved: reqApproved, cancelled: reqCancelled, rejected: reqRejected }
     });
   } catch (error) {
     console.error('Dashboard error:', error);
@@ -608,6 +616,123 @@ app.get('/users', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Users error:', error);
     res.status(500).send('Server error');
+  }
+});
+
+// Requests management (admin)
+app.get('/requests', requireAuth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 25;
+    const skip = (page - 1) * limit;
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+    const total = await Request.countDocuments(filter);
+    const requests = await Request.find(filter).sort({ created_at: -1 }).skip(skip).limit(limit);
+    res.render('requests', { requests, currentPage: page, totalPages: Math.ceil(total / limit), query: req.query, formatDateTime });
+  } catch (err) {
+    console.error('Requests page error:', err);
+    res.status(500).send('Server error');
+  }
+});
+
+app.post('/api/requests/:id/approve', requireAuth, async (req, res) => {
+  try {
+    const r = await Request.findOne({ id: req.params.id });
+    if (!r) return res.json({ ok: false, error: 'not_found' });
+    if (r.status !== 'pending') return res.json({ ok: false, error: 'invalid_status' });
+    // conflict check
+    const conflict = await Booking.findOne({
+      status: { $in: ['confirmed', 'active'] },
+      $or: [{ start: { $lt: r.end }, end: { $gt: r.start } }]
+    });
+    if (conflict) return res.json({ ok: false, error: 'conflict' });
+
+    // resolve opener
+    const sodState = await State.findOne({ key: 'sod_tg' });
+    const keybState = await State.findOne({ key: 'keyb_tg' });
+    let opener = null;
+    if (sodState && sodState.value) opener = { type: 'sod', tg_id: parseInt(sodState.value) };
+    else if (keybState && keybState.value) opener = { type: 'keyb', tg_id: parseInt(keybState.value) };
+
+    // resolve resident
+    let resident = null;
+    if (r.tg_username) resident = await User.findOne({ username: r.tg_username });
+
+    const booking = await Booking.create({
+      id: generateBookingId(),
+      user_tg: resident ? resident.tg_id : undefined,
+      start: r.start,
+      end: r.end,
+      opener,
+      status: 'confirmed'
+    });
+
+    r.status = 'approved';
+    r.created_booking_id = booking.id;
+    await r.save();
+
+    const when = `${formatDateTime(booking.start)} - ${formatDateTime(booking.end)}`;
+    // notify opener
+    if (opener && opener.tg_id) {
+      const who = resident ? (resident.name || ('@' + (resident.username || resident.tg_id))) : `${r.name} (Room ${r.room})`;
+      const msg = `🆕 New booking scheduled\n\n👤 ${who}\n📅 ${when}\n🔑 You are set as: ${opener.type ? opener.type.toUpperCase() : 'N/A'}\n📋 ${booking.id}`;
+      sendTelegramMessage(opener.tg_id, msg).catch(()=>{});
+    }
+    // notify resident via Telegram if known
+    if (resident) {
+      const msg = `✅ Your booking is confirmed!\n\n📅 ${when}\n🔑 Opener: ${opener && opener.type ? opener.type.toUpperCase() : 'TBA'}\n📋 ID: ${booking.id}`;
+      sendTelegramMessage(resident.tg_id, msg).catch(()=>{});
+    }
+
+    return res.json({ ok: true, bookingId: booking.id });
+  } catch (err) {
+    console.error('Approve request error:', err);
+    return res.json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/requests/:id/cancel', requireAuth, async (req, res) => {
+  try {
+    const r = await Request.findOne({ id: req.params.id });
+    if (!r) return res.json({ ok: false, error: 'not_found' });
+    // cancel booking if exists
+    if (r.created_booking_id) {
+      const booking = await Booking.findOne({ id: r.created_booking_id });
+      if (booking) {
+        booking.status = 'cancelled';
+        await booking.save();
+        // notify resident if present
+        if (booking.user_tg) {
+          const msg = `Your booking ${booking.id} on ${formatDateTime(booking.start)} - ${formatDateTime(booking.end)} has been cancelled by admin.`;
+          sendTelegramMessage(booking.user_tg, msg).catch(()=>{});
+        }
+      }
+    }
+    r.status = 'cancelled';
+    await r.save();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Cancel request error:', err);
+    return res.json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/requests/:id/reject', requireAuth, async (req, res) => {
+  try {
+    const r = await Request.findOne({ id: req.params.id });
+    if (!r) return res.json({ ok: false, error: 'not_found' });
+    if (r.created_booking_id) {
+      // If booking exists, can't reject
+      return res.json({ ok: false, error: 'already_booked' });
+    }
+    if (r.status !== 'pending') return res.json({ ok: false, error: 'invalid_status' });
+    r.status = 'rejected';
+    await r.save();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Reject request error:', err);
+    return res.json({ ok: false, error: 'server_error' });
   }
 });
 
