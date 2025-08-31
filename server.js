@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Change this!
 const TIMEZONE = process.env.TIMEZONE || 'Europe/Berlin';
+const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 
 // Middleware
 app.use(express.json());
@@ -99,6 +100,28 @@ const getTimeSlots = () => {
     slots.push({ start: hour, display: `${start}-${end}` });
   }
   return slots;
+};
+
+// Telegram notifications
+const sendTelegramMessage = async (chatId, text) => {
+  try {
+    if (!BOT_TOKEN) {
+      console.warn('BOT_TOKEN not configured; skipping Telegram notification');
+      return;
+    }
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text })
+    });
+    if (!res.ok) {
+      const errTxt = await res.text();
+      console.error('Telegram send failed:', errTxt);
+    }
+  } catch (e) {
+    console.error('Error sending Telegram message:', e);
+  }
 };
 
 // Routes
@@ -294,6 +317,11 @@ app.post('/api/bookings/:id/cancel', requireAuth, async (req, res) => {
     booking.status = 'cancelled';
     await booking.save();
 
+    // Notify user on Telegram (non-blocking)
+    const user = await User.findOne({ tg_id: booking.user_tg });
+    const msg = `Your booking ${booking.id} on ${formatDateTime(booking.start)} - ${formatDateTime(booking.end)} has been cancelled by admin.`;
+    sendTelegramMessage(booking.user_tg, msg).catch(() => {});
+
     res.json({ success: true, message: 'Booking cancelled successfully' });
   } catch (error) {
     res.json({ success: false, message: 'Error cancelling booking' });
@@ -311,6 +339,10 @@ app.post('/api/bookings/:id/force-close', requireAuth, async (req, res) => {
     booking.closed_at = new Date();
     await booking.save();
 
+    // Notify user on Telegram (non-blocking)
+    const msg = `Your booking ${booking.id} has been force closed at ${formatDateTime(booking.closed_at)}.`;
+    sendTelegramMessage(booking.user_tg, msg).catch(() => {});
+
     res.json({ success: true, message: 'Booking force closed successfully' });
   } catch (error) {
     res.json({ success: false, message: 'Error force closing booking' });
@@ -321,14 +353,57 @@ app.post('/api/set-opener', requireAuth, async (req, res) => {
   try {
     const { type, userId } = req.body;
     const key = type === 'sod' ? 'sod_tg' : 'keyb_tg';
-    
+    const newTgId = parseInt(userId);
+
+    // Load previous holder
+    const prev = await State.findOne({ key });
+    const oldTgId = prev ? parseInt(prev.value) : null;
+
+    // If no change, acknowledge and exit
+    if (oldTgId === newTgId) {
+      return res.json({ success: true, message: `${type.toUpperCase()} unchanged` });
+    }
+
+    // Update state
     await State.findOneAndUpdate(
       { key },
-      { value: userId.toString() },
+      { value: newTgId.toString() },
       { upsert: true }
     );
 
-    res.json({ success: true, message: `${type.toUpperCase()} updated successfully` });
+    // Notify new holder, previous holder, and admins (best effort)
+    const [newUser, oldUser, admins] = await Promise.all([
+      User.findOne({ tg_id: newTgId }),
+      oldTgId ? User.findOne({ tg_id: oldTgId }) : null,
+      User.find({ role: 'admin' })
+    ]);
+
+    const roleLabel = type.toUpperCase();
+    const nowStr = formatDateTime(new Date());
+
+    // New holder notification
+    if (newTgId) {
+      const msg = `✅ You are now the ${roleLabel} holder.\n\n` +
+                  `• You may receive open/close requests for bookings.\n` +
+                  `• Set by admin at ${nowStr}.`;
+      sendTelegramMessage(newTgId, msg).catch(() => {});
+    }
+
+    // Old holder notification
+    if (oldTgId && oldTgId !== newTgId) {
+      const msg = `ℹ️ You are no longer the ${roleLabel} holder as of ${nowStr}.`;
+      sendTelegramMessage(oldTgId, msg).catch(() => {});
+    }
+
+    // Admins notification
+    const oldName = oldUser ? (oldUser.name || ('@' + (oldUser.username || oldTgId))) : 'None';
+    const newName = newUser ? (newUser.name || ('@' + (newUser.username || newTgId))) : newTgId;
+    const adminMsg = `🔔 ${roleLabel} changed\n\nFrom: ${oldName}\nTo: ${newName}\nAt: ${nowStr}\nSource: Web admin`;
+    admins.forEach(a => {
+      if (a && a.tg_id) sendTelegramMessage(a.tg_id, adminMsg).catch(() => {});
+    });
+
+    res.json({ success: true, message: `${type.toUpperCase()} updated and notified` });
   } catch (error) {
     res.json({ success: false, message: 'Error updating opener' });
   }
