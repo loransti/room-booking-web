@@ -5,7 +5,6 @@ const session = require('express-session');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const expressLayouts = require('express-ejs-layouts');
-const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -14,13 +13,6 @@ const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Change this!
 const TIMEZONE = process.env.TIMEZONE || 'Europe/Berlin';
 const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : undefined;
-const SMTP_SECURE = process.env.SMTP_SECURE === 'true' || false;
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const FROM_EMAIL = process.env.FROM_EMAIL || 'no-reply@example.com';
-const NOTIFY_EMAILS = (process.env.NOTIFY_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean);
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 // Middleware
@@ -137,22 +129,6 @@ const getTimeSlots = () => {
     slots.push({ start: hour, display: `${start}-${end}` });
   }
   return slots;
-};
-
-// Email transport
-let mailer = null;
-if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-  mailer = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT || 587,
-    secure: SMTP_SECURE,
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
-  });
-}
-
-const sendEmail = async ({ to, subject, text, html }) => {
-  if (!mailer) { console.warn('SMTP not configured; skip email to', to); return; }
-  await mailer.sendMail({ from: FROM_EMAIL, to, subject, text, html });
 };
 
 // Telegram notifications
